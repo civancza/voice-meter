@@ -19,6 +19,7 @@ constraints: **minimal CPU and memory**, **native look**, **no webviews / Electr
 | Unit tests | `make test` |
 | Format | `make fmt` |
 | Release zip | `make zip` → `dist/VoiceMeter-<ver>-macos-<arch>.zip` |
+| Regenerate app icon | `make icon` (AppKit/Swift + iconutil; no third-party tools) |
 
 Always run `make check` before declaring work done. Pure model tests live in `src/meter/tests.rs` and
 `src/meter/presentation_tests.rs`; audio tests are in `src/audio.rs`, and render-cache regressions in `src/hud/tests.rs`.
@@ -47,6 +48,8 @@ src/hud/placement.rs window placement/zoom animation, pill mask, screen helpers
 src/hud/tests.rs     full-snapshot repaint/invalidation regression tests
 src/menu.rs          status item, shared menus, refresh, and icon tint
 scripts/bundle.sh    builds/signs VoiceMeter.app, Info.plist lives here
+scripts/generate-icon.swift  native AppKit artwork generator (build-time only)
+assets/              checked-in app icon (ICNS + 1024px PNG)
 Makefile             developer shortcuts
 docs/                screenshots, demo.mp4/demo.gif (rendered from videos/)
 videos/voice-meter-demo/  HyperFrames demo video (index.html + scripts/mix.sh soundtrack); see its AGENTS.md

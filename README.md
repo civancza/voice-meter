@@ -62,6 +62,10 @@ make install      # builds and copies it to /Applications
 
 No `make`? Use `scripts/bundle.sh` (add `--install` to copy to `/Applications`) and then `open VoiceMeter.app`.
 
+The bundle includes a native macOS app icon. Standalone artwork is available as
+[`VoiceMeter.icns`](assets/VoiceMeter.icns) and a [1024px PNG](assets/VoiceMeter.png).
+Run `make icon` to regenerate both using AppKit (no extra dependencies).
+
 ### Start automatically at login
 
 System Settings → General → **Login Items** → `+` → choose **VoiceMeter.app**.

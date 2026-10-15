@@ -5,6 +5,10 @@ versioning: [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- Native macOS app icon with a glass tile and glowing voice-level bars, included in every app bundle.
+- Reproducible AppKit icon generator (`make icon`), with standalone ICNS and 1024px PNG artwork.
+
 ### Fixed
 - Recover microphone capture automatically after default-input changes, audio errors, or stopped callbacks when
   switching meeting apps. Retry unavailable microphones and update `NO MIC` dynamically instead of staying frozen.

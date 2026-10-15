@@ -1,4 +1,4 @@
-.PHONY: build run app install zip fmt lint test check clean
+.PHONY: build run app install zip icon fmt lint test check clean
 
 build:            ## Debug build
 	cargo build
@@ -14,6 +14,9 @@ install:          ## Build and copy to /Applications
 
 zip:              ## Build a distributable zip in dist/
 	scripts/bundle.sh --zip
+
+icon:             ## Regenerate the native app icon (macOS only)
+	swift scripts/generate-icon.swift assets
 
 fmt:              ## Format code
 	cargo fmt
