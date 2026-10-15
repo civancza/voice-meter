@@ -1,0 +1,10 @@
+/target
+/VoiceMeter.app
+/dist
+.DS_Store
+
+# Demo video build outputs
+videos/*/node_modules
+videos/*/renders
+videos/*/.hyperframes
+videos/*/.media

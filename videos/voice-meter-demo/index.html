@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 1920px; height: 1080px; overflow: hidden; background: #07080d; }
+      #root { position: relative; width: 1920px; height: 1080px; overflow: hidden; color: #eef1f7;
+        font-family: "JetBrains Mono", ui-monospace, monospace; }
+      .layer { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; }
+      .display { font-family: "Archivo Black", sans-serif; font-weight: 400; letter-spacing: -0.03em; }
+
+      /* ---------- background ---------- */
+      #bg { background: #07080d; }
+      .glow { position: absolute; border-radius: 50%; will-change: transform, opacity; }
+      #glow-a { width: 1400px; height: 1400px; left: -380px; top: -520px;
+        background: radial-gradient(circle, rgba(64,242,158,0.16) 0%, rgba(64,242,158,0) 62%); }
+      #glow-b { width: 1500px; height: 1500px; left: 900px; top: 260px;
+        background: radial-gradient(circle, rgba(130,110,255,0.16) 0%, rgba(130,110,255,0) 62%); }
+      #glow-red { width: 1900px; height: 1900px; left: 10px; top: -410px; opacity: 0;
+        background: radial-gradient(circle, rgba(255,69,102,0.32) 0%, rgba(255,69,102,0) 60%); }
+      #grain { position: absolute; inset: 0; opacity: 0.5;
+        background-image: radial-gradient(rgba(255,255,255,0.05) 1px, transparent 1px);
+        background-size: 4px 4px; }
+
+      /* ---------- meeting scene ---------- */
+      #call { position: absolute; left: 300px; top: 140px; width: 1320px; height: 740px; border-radius: 22px;
+        background: #10121a; border: 1px solid rgba(255,255,255,0.08);
+        box-shadow: 0 40px 120px rgba(0,0,0,0.55); overflow: hidden; will-change: transform; }
+      #call-bar { position: absolute; left: 0; top: 0; width: 1320px; height: 54px; display: flex; align-items: center;
+        padding: 0 22px; gap: 10px; border-bottom: 1px solid rgba(255,255,255,0.06); background: #141722; }
+      .dot { width: 14px; height: 14px; border-radius: 50%; }
+      #call-title { margin-left: 18px; font-size: 20px; color: #aab2c5; }
+      #call-rec { margin-left: auto; font-size: 18px; color: #ff6b84; }
+      #tiles { position: absolute; left: 20px; top: 74px; width: 1280px; height: 560px; display: grid;
+        grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 16px; }
+      .tile { position: relative; border-radius: 16px; overflow: hidden; display: flex; align-items: center;
+        justify-content: center; background: #1a1e2b; }
+      .tile .av { width: 132px; height: 132px; border-radius: 50%; display: flex; align-items: center;
+        justify-content: center; font-family: "Archivo Black", sans-serif; font-size: 48px; color: #0b0d14; }
+      .tile .nm { position: absolute; left: 18px; bottom: 14px; font-size: 20px; color: #e8ecf5;
+        background: rgba(0,0,0,0.45); padding: 6px 12px; border-radius: 8px; }
+      #t1 { background: radial-gradient(circle at 30% 20%, #2a3350 0%, #1a1e2b 70%); }
+      #t2 { background: radial-gradient(circle at 70% 30%, #3a2a48 0%, #1a1e2b 70%); }
+      #t3 { background: radial-gradient(circle at 40% 80%, #263f3c 0%, #1a1e2b 70%); }
+      #t4 { background: radial-gradient(circle at 60% 40%, #2b3445 0%, #1a1e2b 70%); }
+      #you-ring { position: absolute; inset: 0; border-radius: 16px; border: 4px solid #40f29e; opacity: 0; }
+      #controls { position: absolute; left: 0; bottom: 0; width: 1320px; height: 86px; display: flex;
+        align-items: center; justify-content: center; gap: 22px; }
+      .ctl { width: 56px; height: 56px; border-radius: 50%; background: #262b3a; }
+      .ctl.leave { width: 96px; border-radius: 28px; background: #e5484d; }
+      #shame { position: absolute; inset: 0; border-radius: 22px; opacity: 0;
+        background: radial-gradient(circle at 50% 50%, rgba(255,69,102,0) 40%, rgba(255,69,102,0.35) 100%); }
+
+      #toast { position: absolute; left: 340px; top: 210px; width: 560px; padding: 22px 26px; border-radius: 18px;
+        background: #f4f5f9; color: #12141c; box-shadow: 0 24px 60px rgba(0,0,0,0.5); will-change: transform, opacity; opacity: 0; }
+      #toast .from { font-size: 18px; color: #4a5268; letter-spacing: 0.06em; }
+      #toast .msg { margin-top: 8px; font-family: "Archivo Black", sans-serif; font-size: 38px; letter-spacing: -0.02em; }
+
+      .cap { position: absolute; left: 0; top: 930px; width: 1920px; text-align: center; font-size: 60px; opacity: 0;
+        will-change: transform, opacity; }
+      .cap em { font-style: normal; }
+      #cap3 { color: #ff6f88; }
+      #cap4 em { color: #40f29e; }
+
+      /* ---------- feature scene ---------- */
+      #feat-title { position: absolute; left: 0; top: 150px; width: 1920px; text-align: center; font-size: 168px; line-height: 1;
+        opacity: 0; will-change: transform, opacity; }
+      #feat-title em { font-style: normal; color: #40f29e; }
+      #feat-sub { position: absolute; left: 0; top: 352px; width: 1920px; text-align: center; font-size: 30px; color: #b9c1d4; opacity: 0; }
+      #chips { position: absolute; left: 160px; top: 760px; width: 1600px; display: flex; flex-wrap: wrap; justify-content: center; gap: 18px; }
+      .chip { display: block; padding: 16px 26px; border-radius: 999px; font-size: 27px; color: #e9eef8;
+        background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14); opacity: 0; will-change: transform, opacity; }
+      .chip b { color: #40f29e; font-weight: 700; }
+
+      /* ---------- end card ---------- */
+      #end-title { position: absolute; left: 0; top: 170px; width: 1920px; text-align: center; font-size: 150px; line-height: 1; opacity: 0; }
+      #end-title em { font-style: normal; color: #40f29e; }
+      #term { position: absolute; left: 410px; top: 700px; width: 1100px; padding: 26px 34px; border-radius: 18px;
+        background: #0e1118; border: 1px solid rgba(255,255,255,0.12); font-size: 30px; line-height: 1.6; opacity: 0; }
+      .tl { display: block; width: 1032px; white-space: nowrap; color: #e9eef8; clip-path: inset(0 100% 0 0); }
+      .tl .p { color: #40f29e; }
+      .tl .c { color: #8c95aa; }
+      #end-foot { position: absolute; left: 0; top: 960px; width: 1920px; text-align: center; font-size: 24px; color: #9aa3b8; opacity: 0; }
+      #fade { position: absolute; inset: 0; background: #000; opacity: 0; }
+
+      /* ---------- HUD (1:1 with the app: 344x76, 20pt corners) ---------- */
+      #hud-pulse { position: absolute; left: 0; top: 0; width: 344px; height: 76px; border-radius: 20px;
+        border: 3px solid #ff4566; opacity: 0; will-change: transform, opacity; }
+      #hud { position: absolute; left: 0; top: 0; width: 344px; height: 76px; border-radius: 20px;
+        background: linear-gradient(180deg, #282c38, #161820);
+        border: 1px solid rgba(255,255,255,0.14); box-shadow: 0 18px 50px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.08);
+        will-change: transform, opacity; opacity: 0; }
+      #orb { position: absolute; left: 22px; top: 22px; width: 32px; height: 32px; border-radius: 50%; background: #40f29e; }
+      #meter { position: absolute; left: 78px; top: 20px; width: 174px; height: 36px; }
+      .seg { position: absolute; bottom: 0; width: 4px; border-radius: 2px; }
+      #limit { position: absolute; left: 0; top: -6px; width: 2px; height: 48px; border-radius: 1px; background: #ffffff; }
+      #db { position: absolute; left: 252px; top: 14px; width: 84px; text-align: right; font-family: "JetBrains Mono", monospace;
+        font-weight: 700; font-size: 20px; color: #f4f6fb; letter-spacing: -0.02em; }
+      #mood { position: absolute; left: 232px; top: 44px; width: 104px; text-align: right; font-family: "JetBrains Mono", monospace;
+        font-weight: 700; font-size: 10px; letter-spacing: 0.12em; color: #40f29e; }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-duration="30" data-width="1920" data-height="1080">
+      <div id="bg" class="layer clip" data-start="0" data-duration="30" data-track-index="0">
+        <div id="glow-a" class="glow"></div>
+        <div id="glow-b" class="glow"></div>
+        <div id="glow-red" class="glow"></div>
+        <div id="grain"></div>
+      </div>
+
+      <!-- Scene 1: the meeting -->
+      <div id="meet" class="layer clip" data-start="0" data-duration="16.2" data-track-index="1">
+        <div id="call">
+          <div id="call-bar">
+            <div class="dot" style="background:#ff5f57"></div>
+            <div class="dot" style="background:#febc2e"></div>
+            <div class="dot" style="background:#28c840"></div>
+            <div id="call-title">Weekly sync · 6 participants</div>
+            <div id="call-rec">● REC 00:14:32</div>
+          </div>
+          <div id="tiles" data-layout-allow-overlap data-layout-allow-occlusion>
+            <div class="tile" id="t1"><div class="av" data-layout-allow-occlusion style="background:#8fb4ff">AN</div><div class="nm" data-layout-allow-occlusion>Anna</div></div>
+            <div class="tile" id="t2"><div class="av" data-layout-allow-occlusion style="background:#d6a6ff">MK</div><div class="nm" data-layout-allow-occlusion>Marco</div></div>
+            <div class="tile" id="t3"><div class="av" data-layout-allow-occlusion style="background:#7fe0c4">PR</div><div class="nm" data-layout-allow-occlusion>Priya</div></div>
+            <div class="tile" id="t4"><div class="av" data-layout-allow-occlusion id="you-av" style="background:#ffd27a">ME</div><div class="nm" data-layout-allow-occlusion>You</div><div id="you-ring"></div></div>
+          </div>
+          <div id="controls"><div class="ctl"></div><div class="ctl"></div><div class="ctl"></div><div class="ctl leave"></div></div>
+          <div id="shame"></div>
+        </div>
+        <div id="toast"><div class="from">MESSAGE · FROM THE NEXT ROOM</div><div class="msg">“Why are you SHOUTING?!”</div></div>
+        <div id="cap1" class="cap display">Monday. Weekly sync.</div>
+        <div id="cap2" class="cap display">You’re making a great point…</div>
+        <div id="cap3" class="cap display">…a little too passionately.</div>
+        <div id="cap4" class="cap display">One glance. <em>Crisis averted.</em></div>
+      </div>
+
+      <!-- Scene 2: features -->
+      <div id="feat" class="layer clip" data-start="15.6" data-duration="8.4" data-track-index="2">
+        <div id="feat-title" class="display">VOICE <em>METER</em></div>
+        <div id="feat-sub">A tiny native macOS HUD that tells you when you’re too loud.</div>
+        <div id="chips">
+          <div class="chip"><b>◎</b> Auto-calibrates to your mic</div>
+          <div class="chip"><b>5</b> sensitivity presets</div>
+          <div class="chip"><b>⌘</b> Lives in the menu bar</div>
+          <div class="chip"><b>&lt;1%</b> CPU · Rust + AppKit</div>
+          <div class="chip"><b>0</b> recordings. Ever.</div>
+        </div>
+      </div>
+
+      <!-- Scene 3: end card -->
+      <div id="end" class="layer clip" data-start="23.8" data-duration="6.2" data-track-index="3">
+        <div id="end-title" class="display">Talk. Don’t <em>shout.</em></div>
+        <div id="term">
+          <div class="tl" id="tl1"><span class="p">$</span> git clone https://github.com/civancza/voice-meter</div>
+          <div class="tl" id="tl2"><span class="p">$</span> cd voice-meter &amp;&amp; make install <span class="c"># → /Applications</span></div>
+        </div>
+        <div id="end-foot">github.com/civancza/voice-meter · Native macOS · Rust · MIT</div>
+      </div>
+
+      <!-- The HUD persists across all scenes -->
+      <div id="hud-layer" class="layer clip" data-start="0" data-duration="30" data-track-index="5">
+        <div id="hud-pulse"></div>
+        <div id="hud">
+          <div id="orb"></div>
+          <div id="meter"><div id="limit"></div></div>
+          <div id="db">−52 dB</div>
+          <div id="mood">QUIET</div>
+        </div>
+        <div id="fade"></div>
+      </div>
+
+      <audio id="soundtrack" src="assets/audio/soundtrack.mp3" data-start="0" data-duration="30" data-track-index="10" data-volume="1"></audio>
+    </div>
+
+    <script>
+      // ---- loudness model (same curve as scripts/make-audio.mjs) ----
+      const THR = -20, MIN_DB = -60, N_SEG = 28, METER_W = 174;
+      const DB_KEYS = [
+        [0, -52], [1.2, -50], [1.6, -34], [4.5, -31], [6.5, -22], [7.6, -13], [10.6, -11], [11.6, -30],
+        [13.8, -32], [15, -50], [16.3, -50], [16.9, -30], [23.4, -30], [24.4, -36], [28.6, -36], [29.6, -52], [30, -52],
+      ];
+      const smooth = (u) => u * u * (3 - 2 * u);
+      function baseDb(t) {
+        for (let i = 1; i < DB_KEYS.length; i++) {
+          const [t1, d1] = DB_KEYS[i], [t0, d0] = DB_KEYS[i - 1];
+          if (t <= t1) return d0 + (d1 - d0) * smooth((t - t0) / (t1 - t0));
+        }
+        return -52;
+      }
+      const hash = (k) => { const x = Math.sin(k * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+      const talking = (t) => (t > 1.6 && t < 14.2) || (t > 16.5 && t < 29.2);
+      function db(t) {
+        let d = baseDb(t);
+        if (talking(t)) {
+          const syl = Math.floor(t * 5.2), u = t * 5.2 - syl;
+          const gap = hash(syl + 99) < 0.18 ? 0 : 1;
+          const env = Math.pow(Math.sin(Math.PI * Math.min(1, u * 1.15)), 0.7) * gap;
+          d += 7 * Math.log10(Math.max(0.03, env)) + 1.6 * Math.sin(t * 31.7);
+        } else {
+          d += 1.2 * Math.sin(t * 13.1) + 0.8 * Math.sin(t * 29.3);
+        }
+        if (isLoud(t)) d = Math.max(d, -17 + 2 * Math.sin(t * 7));
+        return Math.max(MIN_DB, Math.min(-1, d));
+      }
+      const isLoud = (t) => t >= 7.75 && t < 11.5;
+
+      const C = {
+        quiet: [140, 158, 189], good: [64, 242, 158], careful: [255, 189, 56], loud: [255, 69, 102],
+      };
+      const rgba = (c, a) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+      function mood(t) {
+        if (isLoud(t)) return ["TOO LOUD", C.loud];
+        const b = baseDb(t);
+        if (b >= THR - 6) return ["EASY…", C.careful];
+        if (b >= THR - 26 && talking(t)) return ["GOOD", C.good];
+        return ["QUIET", C.quiet];
+      }
+
+      // Build segments (heights ramp 10 → 36 like the app)
+      const meter = document.getElementById("meter");
+      const segs = [];
+      const segColor = [];
+      for (let i = 0; i < N_SEG; i++) {
+        const el = document.createElement("div");
+        el.className = "seg";
+        const x = (i * METER_W) / N_SEG;
+        el.style.left = x.toFixed(2) + "px";
+        el.style.height = (10 + (26 * i) / (N_SEG - 1)).toFixed(1) + "px";
+        meter.insertBefore(el, meter.firstChild);
+        const sDb = MIN_DB + ((i + 1) * -MIN_DB) / N_SEG;
+        let c;
+        if (sDb > THR) c = C.loud;
+        else if (sDb > THR - 8) c = C.careful;
+        else {
+          const u = i / (N_SEG * 0.6);
+          c = [Math.round(56 + (64 - 56) * u), Math.round(200 + (242 - 200) * u), Math.round(255 + (158 - 255) * u)];
+        }
+        segs.push({ el, sDb });
+        segColor.push(c);
+      }
+      document.getElementById("limit").style.left = (((THR - MIN_DB) / -MIN_DB) * METER_W - 1).toFixed(1) + "px";
+
+      const $ = (id) => document.getElementById(id);
+      const dbEl = $("db"), moodEl = $("mood"), orb = $("orb"), ring = $("you-ring"), shame = $("shame"),
+        call = $("call"), glowRed = $("glow-red");
+
+      function render(t) {
+        const d = db(t);
+        for (let i = 0; i < N_SEG; i++) {
+          const on = segs[i].sDb <= d + 0.01;
+          segs[i].el.style.background = rgba(segColor[i], on ? 1 : 0.14);
+          segs[i].el.style.boxShadow = on && segs[i].sDb > THR - 8 ? `0 0 8px ${rgba(segColor[i], 0.7)}` : "none";
+        }
+        dbEl.textContent = "−" + Math.abs(Math.round(d)) + " dB";
+        const [label, mc] = mood(t);
+        moodEl.textContent = label;
+        moodEl.style.color = rgba(mc, 1);
+        const lvl = Math.max(0, Math.min(1, (d - MIN_DB) / -MIN_DB));
+        orb.style.background = `radial-gradient(circle at 38% 35%, ${rgba([255, 255, 255], 0.55)} 0%, ${rgba(mc, 1)} 45%, ${rgba(mc, 0.85)} 100%)`;
+        orb.style.boxShadow = `0 0 ${Math.round(8 + 22 * lvl)}px ${rgba(mc, 0.35 + 0.5 * lvl)}`;
+        orb.style.transform = `scale(${(0.86 + 0.22 * lvl).toFixed(3)})`;
+
+        // Meeting reactions
+        const speak = talking(t) && t < 15 ? Math.max(0, Math.min(1, (d + 50) / 30)) : 0;
+        ring.style.opacity = speak.toFixed(3);
+        ring.style.borderColor = isLoud(t) ? "#ff4566" : d > THR - 6 ? "#ffbd38" : "#40f29e";
+        const loudAmt = isLoud(t) ? Math.min(1, (t - 7.75) / 0.3, (11.5 - t) / 0.5) : 0;
+        shame.style.opacity = (loudAmt * (0.75 + 0.25 * Math.sin(t * 9))).toFixed(3);
+        glowRed.style.opacity = (loudAmt * 0.9).toFixed(3);
+        const shake = loudAmt * (t < 9 ? 1 : 0.35);
+        call.style.transform = `translate(${(shake * 5 * Math.sin(t * 71)).toFixed(2)}px, ${(shake * 3 * Math.sin(t * 53 + 1)).toFixed(2)}px)`;
+      }
+
+      // ---- timeline ----
+      const tl = gsap.timeline({ paused: true });
+      const proxy = { t: 0 };
+      tl.fromTo(proxy, { t: 0 }, { t: 30, duration: 30, ease: "none", onUpdate: () => render(proxy.t) }, 0);
+
+      // Ambient glows (sine-wave-loop / ambient-glow-bloom)
+      tl.fromTo("#glow-a", { x: 0, y: 0, scale: 1 }, { x: 160, y: 90, scale: 1.12, duration: 30, ease: "sine.inOut" }, 0);
+      tl.fromTo("#glow-b", { x: 0, y: 0, scale: 1.05 }, { x: -220, y: -120, scale: 0.95, duration: 30, ease: "sine.inOut" }, 0);
+
+      // HUD placement: home (top-right), center (zoomed), feature/end stage
+      const S_HOME = 1.3, S_ZOOM = 2.9;
+      const pos = (cx, cy) => ({ x: cx - 172, y: cy - 38 });
+      const HOME = pos(1636, 104), CENTER = pos(960, 520), STAGE = pos(960, 560), END = pos(960, 520);
+      tl.fromTo("#hud", { ...HOME, scale: 0.5, opacity: 0 }, { ...HOME, scale: S_HOME, opacity: 1, duration: 0.7, ease: "back.out(1.8)" }, 0.25);
+      tl.fromTo("#hud", { ...HOME, scale: S_HOME }, { ...CENTER, scale: S_ZOOM, duration: 0.55, ease: "expo.out", immediateRender: false }, 7.75);
+      tl.fromTo("#hud", { ...CENTER, scale: S_ZOOM }, { ...HOME, scale: S_HOME, duration: 0.9, ease: "power3.inOut", immediateRender: false }, 11.5);
+      tl.fromTo("#hud", { ...HOME, scale: S_HOME }, { ...STAGE, scale: 1.75, duration: 0.9, ease: "power3.inOut", immediateRender: false }, 15.5);
+      tl.fromTo("#hud", { ...STAGE, scale: 1.75 }, { ...END, scale: 1.5, duration: 0.7, ease: "power3.inOut", immediateRender: false }, 23.7);
+      // Alarm pulse rings
+      [7.95, 8.75, 9.55, 10.35].forEach((at) => {
+        tl.fromTo("#hud-pulse", { ...CENTER, scale: S_ZOOM, opacity: 0.9 }, { ...CENTER, scale: S_ZOOM * 1.22, opacity: 0, duration: 0.75, ease: "power2.out", immediateRender: false }, at);
+      });
+      tl.fromTo("#hud", { rotation: 0 }, { rotation: 0, keyframes: [{ rotation: -2.5, duration: 0.06 }, { rotation: 2.5, duration: 0.08 }, { rotation: -1.5, duration: 0.08 }, { rotation: 0, duration: 0.08 }], immediateRender: false }, 8.0);
+
+      // Scene 1: meeting
+      tl.fromTo("#call", { opacity: 0, scale: 0.94, y: 30 }, { opacity: 1, scale: 1, y: 0, duration: 0.9, ease: "power3.out" }, 0);
+      tl.fromTo(".tile", { opacity: 0, scale: 0.9 }, { opacity: 1, scale: 1, duration: 0.5, ease: "back.out(1.6)", stagger: 0.1 }, 0.3);
+      const cap = (id, a, b) => {
+        tl.fromTo(id, { opacity: 0, y: 26 }, { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" }, a);
+        tl.fromTo(id, { opacity: 1, y: 0 }, { opacity: 0, y: -16, duration: 0.3, ease: "power2.in", immediateRender: false }, b);
+      };
+      cap("#cap1", 1.0, 3.9);
+      cap("#cap2", 4.2, 7.45);
+      cap("#cap4", 12.1, 15.1);
+      tl.fromTo("#cap3", { opacity: 0, scale: 1.4 }, { opacity: 1, scale: 1, duration: 0.25, ease: "power4.out" }, 8.05);
+      tl.fromTo("#cap3", { opacity: 1 }, { opacity: 0, duration: 0.3, immediateRender: false }, 11.2);
+      tl.fromTo("#toast", { opacity: 0, y: -30, scale: 0.92 }, { opacity: 1, y: 0, scale: 1, duration: 0.5, ease: "back.out(1.7)" }, 6.3);
+      tl.fromTo("#toast", { opacity: 1, y: 0 }, { opacity: 0, y: -20, duration: 0.35, ease: "power2.in", immediateRender: false }, 11.3);
+      tl.fromTo("#call", { opacity: 1, scale: 1 }, { opacity: 0, scale: 0.9, duration: 0.6, ease: "power2.in", immediateRender: false }, 15.4);
+
+      // Scene 2: features
+      tl.fromTo("#feat-title", { opacity: 0, scale: 1.25, y: 0 }, { opacity: 1, scale: 1, y: 0, duration: 0.45, ease: "power4.out" }, 16.15);
+      tl.fromTo("#feat-sub", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, 16.7);
+      gsap.utils.toArray(".chip").forEach((el, i) => {
+        tl.fromTo(el, { opacity: 0, scale: 0.6, y: 30 }, { opacity: 1, scale: 1, y: 0, duration: 0.45, ease: "back.out(2)" }, 18.0 + i * 0.55);
+      });
+      tl.fromTo(["#feat-title", "#feat-sub", "#chips"], { opacity: 1 }, { opacity: 0, duration: 0.4, ease: "power2.in", immediateRender: false }, 23.4);
+
+      // Scene 3: end card
+      tl.fromTo("#end-title", { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }, 24.0);
+      tl.fromTo("#term", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, 24.4);
+      tl.fromTo("#tl1", { clipPath: "inset(0 100% 0 0)" }, { clipPath: "inset(0 0% 0 0)", duration: 1.3, ease: "steps(48)" }, 24.6);
+      tl.fromTo("#tl2", { clipPath: "inset(0 100% 0 0)" }, { clipPath: "inset(0 0% 0 0)", duration: 0.9, ease: "steps(36)" }, 26.0);
+      tl.fromTo("#end-foot", { opacity: 0 }, { opacity: 1, duration: 0.6 }, 26.6);
+      tl.fromTo("#fade", { opacity: 0 }, { opacity: 1, duration: 0.9, ease: "power1.in" }, 29.1);
+
+      window.__timelines = window.__timelines || {};
+      window.__timelines["main"] = tl;
+      tl.seek(0);
+    </script>
+  </body>
+</html>
