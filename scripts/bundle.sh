@@ -50,6 +50,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>LSMinimumSystemVersion</key><string>11.0</string>
   <key>LSUIElement</key><true/>
   <key>NSHighResolutionCapable</key><true/>
+  <key>NSAudioCaptureUsageDescription</key><string>Voice Meter measures how loud the sound you hear is (nothing is recorded or stored) to help protect your ears.</string>
   <key>NSMicrophoneUsageDescription</key><string>Voice Meter listens to your microphone level (nothing is recorded or stored) to show how loudly you speak.</string>
 </dict></plist>
 PLIST

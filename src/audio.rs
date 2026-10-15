@@ -12,36 +12,66 @@ use cpal::{FromSample, Sample, SizedSample};
 const CHECK_INTERVAL: Duration = Duration::from_secs(1);
 const STALL_TIMEOUT: Duration = Duration::from_secs(3);
 
+/// Lock-free hand-off from a real-time audio callback to the UI thread: the loudest RMS and the
+/// number of non-empty buffers since the last read. No locks, no allocation.
+#[derive(Default)]
+pub(crate) struct Exchange {
+    level: AtomicU32,
+    buffers: AtomicU32,
+}
+
+impl Exchange {
+    /// Called from the audio callback. For non-negative f32 values, bit patterns order like the
+    /// numbers, so `fetch_max` on the bits keeps the loudest RMS.
+    pub(crate) fn record(&self, sum_sq: f32, n: usize) {
+        if n == 0 {
+            return;
+        }
+        let rms = (sum_sq / n as f32).sqrt();
+        self.level.fetch_max(rms.to_bits(), Ordering::Relaxed);
+        self.buffers.fetch_add(1, Ordering::Relaxed);
+    }
+
+    /// Takes the loudest RMS recorded since the previous read, resetting it to zero.
+    pub(crate) fn take_level(&self) -> f32 {
+        f32::from_bits(self.level.swap(0, Ordering::Relaxed))
+    }
+
+    pub(crate) fn take_buffers(&self) -> u32 {
+        self.buffers.swap(0, Ordering::Relaxed)
+    }
+}
+
 /// Shared with one stream's callbacks; every connection gets a fresh one, so late
 /// callbacks from a replaced stream can never leak into the new one.
 #[derive(Default)]
 struct Signal {
-    level: AtomicU32,
-    buffers: AtomicU32,
+    exchange: Exchange,
     failed: AtomicBool,
 }
 
-struct Health {
+/// Tracks whether a capture is delivering buffers (silence included).
+pub(crate) struct Health {
     last_buffer: Instant,
-    receiving: bool,
+    pub(crate) receiving: bool,
 }
 
 impl Health {
-    fn new(now: Instant) -> Self {
+    pub(crate) fn new(now: Instant) -> Self {
         Self {
             last_buffer: now,
             receiving: false,
         }
     }
 
-    fn observe(&mut self, now: Instant, buffers: u32) {
-        if buffers != 0 {
+    pub(crate) fn observe(&mut self, now: Instant, exchange: &Exchange) {
+        if exchange.take_buffers() != 0 {
             self.last_buffer = now;
             self.receiving = true;
         }
     }
 
-    fn stalled(&self, now: Instant) -> bool {
+    pub(crate) fn stalled(&self, now: Instant) -> bool {
         now.duration_since(self.last_buffer) >= STALL_TIMEOUT
     }
 }
@@ -106,7 +136,7 @@ impl Live {
     }
 
     fn reading(&self) -> Option<f32> {
-        let level = take_level(&self.signal.level);
+        let level = self.signal.exchange.take_level();
         (self.health.receiving && !self.signal.failed.load(Ordering::Relaxed)).then_some(level)
     }
 }
@@ -134,7 +164,7 @@ impl Capture {
     pub fn poll(&mut self) -> Option<f32> {
         let now = Instant::now();
         if let State::Live(live) = &mut self.state {
-            live.health.observe(now, live.signal.buffers.swap(0, Ordering::Relaxed));
+            live.health.observe(now, &live.signal.exchange);
         }
         if now >= self.next_check {
             self.next_check = now + CHECK_INTERVAL;
@@ -173,21 +203,6 @@ impl Capture {
     }
 }
 
-/// Takes the loudest RMS published since the previous read, resetting it to zero.
-fn take_level(level: &AtomicU32) -> f32 {
-    f32::from_bits(level.swap(0, Ordering::Relaxed))
-}
-
-/// Publishes the loudest RMS seen since the UI last read it. For non-negative
-/// f32 values, bit patterns order like the numbers, so `fetch_max` on the bits works.
-fn publish(level: &AtomicU32, sum_sq: f32, n: usize) {
-    if n == 0 {
-        return;
-    }
-    let rms = (sum_sq / n as f32).sqrt();
-    level.fetch_max(rms.to_bits(), Ordering::Relaxed);
-}
-
 fn build_stream<T: SizedSample>(
     device: &CoreAudioDevice,
     config: &cpal::StreamConfig,
@@ -207,10 +222,7 @@ where
                     value * value
                 })
                 .sum();
-            publish(&signal.level, sum_sq, samples.len());
-            if !samples.is_empty() {
-                signal.buffers.fetch_add(1, Ordering::Relaxed);
-            }
+            signal.exchange.record(sum_sq, samples.len());
         },
         move |e| {
             if !errors.failed.swap(true, Ordering::Relaxed) {
@@ -300,12 +312,12 @@ mod tests {
     fn silent_buffers_keep_capture_healthy() {
         let start = Instant::now();
         let mut health = Health::new(start);
-        let level = AtomicU32::new(0);
+        let exchange = Exchange::default();
         for second in 1..=60 {
             let now = start + Duration::from_secs(second);
-            publish(&level, 0.0, 128);
-            health.observe(now, 1);
-            assert_eq!(take_level(&level), 0.0);
+            exchange.record(0.0, 128);
+            health.observe(now, &exchange);
+            assert_eq!(exchange.take_level(), 0.0);
             assert!(health.receiving);
             assert!(!health.stalled(now));
         }
@@ -318,30 +330,32 @@ mod tests {
         assert!(!health.receiving);
         assert!(!health.stalled(start + STALL_TIMEOUT / 2));
         assert!(health.stalled(start + STALL_TIMEOUT));
-        health.observe(start + STALL_TIMEOUT, 1);
+        let exchange = Exchange::default();
+        exchange.record(0.0, 1);
+        health.observe(start + STALL_TIMEOUT, &exchange);
         assert!(!health.stalled(start + STALL_TIMEOUT));
-        health.observe(start + STALL_TIMEOUT * 2, 0);
+        health.observe(start + STALL_TIMEOUT * 2, &exchange);
         assert!(health.stalled(start + STALL_TIMEOUT * 2));
     }
 
     #[test]
-    fn publish_keeps_loudest_rms() {
-        let level = AtomicU32::new(0);
-        publish(&level, 0.25 * 4.0, 4); // rms 0.5
-        publish(&level, 0.01 * 4.0, 4); // rms 0.1, quieter: ignored
-        assert!((f32::from_bits(level.load(Ordering::Relaxed)) - 0.5).abs() < 1e-6);
-        publish(&level, 0.0, 0); // empty buffer: no-op
-        assert!((f32::from_bits(level.load(Ordering::Relaxed)) - 0.5).abs() < 1e-6);
+    fn record_keeps_loudest_rms_and_counts_non_empty_buffers() {
+        let exchange = Exchange::default();
+        exchange.record(0.25 * 4.0, 4); // rms 0.5
+        exchange.record(0.01 * 4.0, 4); // rms 0.1, quieter: ignored
+        exchange.record(0.0, 0); // empty buffer: no-op
+        assert_eq!(exchange.take_buffers(), 2);
+        assert!((exchange.take_level() - 0.5).abs() < 1e-6);
     }
 
     #[test]
     fn take_level_resets_peak() {
-        let level = AtomicU32::new(0);
-        publish(&level, 1.0, 4);
-        assert_eq!(take_level(&level), 0.5);
-        assert_eq!(take_level(&level), 0.0);
-        publish(&level, 0.01, 1);
-        assert!((take_level(&level) - 0.1).abs() < 1e-6);
+        let exchange = Exchange::default();
+        exchange.record(1.0, 4);
+        assert_eq!(exchange.take_level(), 0.5);
+        assert_eq!(exchange.take_level(), 0.0);
+        exchange.record(0.01, 1);
+        assert!((exchange.take_level() - 0.1).abs() < 1e-6);
     }
 
     #[test]

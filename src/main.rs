@@ -1,5 +1,6 @@
 //! Voice Meter — a tiny floating HUD that shows how loudly you speak.
 mod audio;
+mod hearing;
 mod hud;
 mod menu;
 mod meter;
@@ -24,6 +25,8 @@ struct Ui {
 
 struct Ivars {
     capture: RefCell<audio::Capture>,
+    hearing: RefCell<hearing::Monitor>,
+    ear: RefCell<hearing::Ear>,
     ui: OnceCell<Ui>,
     meter: RefCell<Meter>,
     prefs: Prefs,
@@ -89,6 +92,8 @@ impl Controller {
         let threshold = prefs.threshold().unwrap_or(meter::DEFAULT_THRESHOLD);
         let this = Self::alloc(mtm).set_ivars(Ivars {
             capture: RefCell::new(audio::Capture::new()),
+            hearing: RefCell::new(hearing::Monitor::new()),
+            ear: RefCell::new(hearing::Ear::new()),
             ui: OnceCell::new(),
             meter: RefCell::new(Meter::new(threshold)),
             prefs,
@@ -147,6 +152,8 @@ impl Controller {
         let ui = self.ui();
         ui.menu.render(self.mtm(), &frame);
         ui.hud.render(&frame);
+        let reading = self.ivars().hearing.borrow_mut().poll();
+        ui.hud.render_hearing(&self.ivars().ear.borrow_mut().step(reading));
         ui.placement.update_zoom(&ui.hud, frame.too_loud);
         if let Some(threshold) = frame.calibration_result {
             self.set_threshold(threshold);

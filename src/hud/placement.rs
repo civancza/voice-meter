@@ -20,10 +20,12 @@ pub struct Placement {
 
 impl Placement {
     pub fn new(mtm: MainThreadMarker, prefs: &Prefs) -> Self {
-        let saved = prefs
-            .home()
-            .map(|(x, y)| CGPoint::new(x, y))
-            .filter(|p| screen_containing(mtm, CGPoint::new(p.x + W / 2.0, p.y + H / 2.0)).is_some());
+        // Keep the top edge below the menu bar in case a home saved for a shorter HUD now overflows.
+        let saved = prefs.home().and_then(|(x, y)| {
+            let screen = screen_containing(mtm, CGPoint::new(x + W / 2.0, y + H / 2.0))?;
+            let vf = screen.visibleFrame();
+            Some(CGPoint::new(x, y.min(vf.origin.y + vf.size.height - H)))
+        });
         let home = saved.unwrap_or_else(|| {
             NSScreen::mainScreen(mtm)
                 .map(|screen| {

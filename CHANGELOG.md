@@ -5,6 +5,14 @@ versioning: [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-15
+
+### Added
+
+- 👂 hearing row under the mic meter: measures the level of everything apps play (Core Audio process tap, macOS
+  14.2+) plus the output volume, with mic-style smoothing. It is amber from −30 dB, red from −20 dB, shows `MUTED` when
+  the output is muted. Requires the system audio recording permission; older macOS shows `—`.
+
 ## [0.3.0] - 2026-10-15
 
 ### Added

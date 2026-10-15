@@ -203,8 +203,7 @@ impl Meter {
         self.set_mic(db.is_some());
         let db = db.unwrap_or(f32::NEG_INFINITY);
         self.tick += 1;
-        let k = if db > self.smooth { ATTACK } else { RELEASE };
-        self.smooth += (db.max(SMOOTH_FLOOR_DB) - self.smooth) * k;
+        self.smooth = ease(self.smooth, db);
         let smooth = self.smooth;
 
         if smooth > self.peak {
@@ -354,6 +353,12 @@ pub fn clamp_threshold(db: f32) -> f32 {
 
 pub fn db_frac(db: f32) -> f64 {
     ((db - MIN_DB) / (MAX_DB - MIN_DB)).clamp(0.0, 1.0) as f64
+}
+
+/// One attack/release smoothing step from `smooth` toward `db`, floored at `SMOOTH_FLOOR_DB`.
+pub fn ease(smooth: f32, db: f32) -> f32 {
+    let k = if db > smooth { ATTACK } else { RELEASE };
+    smooth + (db.max(SMOOTH_FLOOR_DB) - smooth) * k
 }
 
 pub fn db_label(db: f32) -> String {

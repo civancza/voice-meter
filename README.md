@@ -34,6 +34,9 @@ Written in Rust directly against AppKit + Core Animation + Core Audio. No Electr
 - 🔴 **Jump to center**: when too loud, the HUD glides to the screen center at 2.2× size, then returns home (toggle in menu).
 - 🖱️ **Drag anywhere**: position is remembered (multi-monitor aware).
 - 📌 **Menu-bar icon**: lives in the menu bar, no Dock icon. Right-click the HUD for the same menu.
+- 👂 **Ear guard**: a slim row under the mic meter measures how loud the sound you hear is: everything apps play, scaled
+  by your speaker/headphone volume. Green is comfortable, amber from −30 dB, red from −20 dB (the white tick), so you
+  know when to turn it down. Needs macOS 14.2+ and the one-time *system audio recording* permission.
 - **Automatic microphone recovery**: follows default-input changes, and reconnects if a meeting app
   interrupts capture. No relaunch needed.
 
@@ -46,7 +49,7 @@ Written in Rust directly against AppKit + Core Animation + Core Audio. No Electr
 3. The app is not notarized, so the first time macOS will block it. Either
    - right-click the app → **Open** → **Open**, or
    - run `xattr -dr com.apple.quarantine /Applications/VoiceMeter.app`.
-4. Allow **microphone access** when asked.
+4. Allow **microphone access** when asked, and **system audio recording** for the 👂 hearing row.
 
 ### Option B: Build from source
 
@@ -93,6 +96,11 @@ Levels are dBFS of the default input device (0 dB = clipping). Typical speech si
 - **Meter stops after switching meeting apps or connecting headphones**: capture reconnects automatically within a few
   seconds. `NO MIC` means no live audio buffers are arriving, not that you are simply being quiet.
   If it persists, check the default input and microphone permission.
+- **👂 row stays at `— dB` while audio plays**: System Settings → Privacy & Security → **Screen & System Audio
+  Recording** → allow *Voice Meter* under *System Audio Recording Only*. Re-prompt with
+  `tccutil reset AudioCapture com.civancza.voicemeter`. `—` alone means no output device or macOS older than 14.2.
+- **How loud is −20 dB?** The reading is digital level plus output volume, not a calibrated SPL measurement; actual
+  loudness depends on your speakers or headphones. Typical music at full volume reads around −14 dB.
 - **Reset all settings**: `defaults delete com.civancza.voicemeter`.
 
 ## How it works
@@ -104,6 +112,7 @@ flowchart LR
   Tick --> Layers[CALayer tree<br/>only changed props updated]
   Tick --> Zoom[update_zoom<br/>NSPanel frame + stage transform]
   Tick --> Status[NSStatusItem tint]
+  Out[System audio<br/>Core Audio process tap] -->|RMS + output volume dB| Tick
 ```
 
 See [AGENTS.md](AGENTS.md) for a deeper architecture walkthrough.

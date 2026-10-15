@@ -406,6 +406,7 @@ dependencies = [
  "objc2",
  "objc2-core-audio-types",
  "objc2-core-foundation",
+ "objc2-foundation",
 ]
 
 [[package]]
@@ -726,11 +727,13 @@ checksum = "a2c754d6c33795a1c324727428e5a7dedb5b06195f9890bdbcba760d3e246563"
 
 [[package]]
 name = "voice-meter"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "cpal",
  "objc2",
  "objc2-app-kit",
+ "objc2-core-audio",
+ "objc2-core-audio-types",
  "objc2-core-foundation",
  "objc2-core-graphics",
  "objc2-foundation",

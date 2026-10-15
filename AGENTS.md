@@ -23,7 +23,7 @@ constraints: **minimal CPU and memory**, **native look**, **no webviews / Electr
 
 Always run `make check` before declaring work done. Pure model tests live in `src/meter/tests.rs` and
 `src/meter/presentation_tests.rs`; audio tests are in `src/audio.rs`, and render-cache regressions in `src/hud/tests.rs`.
-Logic that can be tested without AppKit (e.g. `db_frac`, `publish`, calibration math) should get tests when changed.
+Logic that can be tested without AppKit (e.g. `db_frac`, `Exchange::record`, calibration math) should get tests when changed.
 
 The ignored `audio::tests::live_capture_recovers_from_stopped_callbacks_errors_and_input_changes` test needs a real
 microphone and bundle permission. Copy the test executable reported by `cargo test --release --no-run` into a temporary
@@ -42,6 +42,9 @@ src/main.rs          Controller actions, NSWindowDelegate, wiring, and app entry
 src/meter.rs         pure Meter model and complete Frame presentation snapshots
 src/meter/           model and presentation tests
 src/audio.rs         recoverable cpal capture, callback health, atomic peak-RMS exchange (plus tests)
+src/hearing.rs       pure Ear model for the 👂 row: smoothing, mood, label (plus tests)
+src/hearing/monitor.rs  tap lifecycle state machine + default output mute/volume dB
+src/hearing/tap.rs   Core Audio process tap + private aggregate device, real-time IOProc
 src/prefs.rs         typed NSUserDefaults settings access
 src/hud.rs           HUD/layer construction, snapshot rendering, one render cache
 src/hud/placement.rs window placement/zoom animation, pill mask, screen helpers
@@ -60,9 +63,10 @@ If you change the HUD look (colors, sizes, labels), mirror it in `videos/voice-m
 
 ## Architecture
 
-- **Audio capture** (`audio::Capture`, `publish`): cpal callback computes RMS per buffer and stores the max since last read
-  in an `AtomicU32` (`fetch_max` on f32 bits, valid because values are non-negative). No locks, no allocation.
-  A separate atomic counts non-empty callbacks, including silence. `Capture` is a `Disconnected | Live` state machine:
+- **Audio capture** (`audio::Capture`, `audio::Exchange`): cpal callback computes RMS per buffer and `Exchange::record`s
+  the max since last read in an `AtomicU32` (`fetch_max` on f32 bits, valid because values are non-negative). No locks,
+  no allocation. The same `Exchange` counts non-empty callbacks, including silence; `audio::Health` turns that into
+  receiving/stalled state. Both are shared with the hearing tap. `Capture` is a `Disconnected | Live` state machine:
   `poll` returns `Option<f32>` (`None` = no mic) and once per second compares the default input device ID (cheap; the
   stream format is read only when connecting) and rebuilds capture on a device change, stream error, or three seconds
   without callbacks. Each `Live` connection owns its own atomic exchange, so late callbacks cannot contaminate a
@@ -87,6 +91,16 @@ If you change the HUD look (colors, sizes, labels), mirror it in `videos/voice-m
   Connected-display checks use `CGRectContainsPoint`.
 - **View tree**: `NSPanel` (borderless, non-activating, level 25, all Spaces) → `NSVisualEffectView` (blur, shaped by
   `pill_mask` image) → stored `canvas` NSView → `stage` CALayer (fixed W×H, scaled for zoom) → segment/orb/text layers.
+- **Hearing level** (`hearing::Monitor`, `hearing::tap::Tap`, `hearing::Ear`): a private global stereo process tap in a
+  private aggregate device; its IOProc records peak RMS into an `audio::Exchange`, exactly like the mic callback.
+  Tap functions are resolved with `dlsym` so the app still launches on macOS < 14.2 (`Unsupported`, shows `—`).
+  `Monitor` runs an `Idle | Starting | Running { tap, health } | Unsupported` state machine (starting happens on a helper
+  thread because it blocks while the permission prompt is open) and adds the default output's volume in dB (mute →
+  `MUTED`; read every 500 ms; main element, else mean of channels 1–2, else 0 dB). A tap that has delivered and then
+  stalls for 3 s is restarted. `Ear` is the pure model (`meter::ease` attack/release, label every `DB_TEXT_EVERY_TICKS`,
+  amber ≥ `CAREFUL_DB`, red ≥ `LOUD_DB`). The HUD's 20 pt bottom 👂 row (`EAR_H`; the main row is `ROW_H`) has its own
+  `HearingSnapshot` cache (bar width in whole points, mood, label) and repaints only on change.
+  Requires `NSAudioCaptureUsageDescription` (in `scripts/bundle.sh`).
 - **Menus** (`menu::Menu`): owns the status item and shared status/HUD context menu, updates checks/titles, and applies
   the model's status tint independently of HUD visibility.
 - **Persistence** (`prefs::Prefs`): wraps `NSUserDefaults` keys `thresholdDb`, `jumpWhenLoud`, `hudX`, `hudY`

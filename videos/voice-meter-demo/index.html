@@ -86,10 +86,10 @@
       #end-foot { position: absolute; left: 0; top: 960px; width: 1920px; text-align: center; font-size: 24px; color: #9aa3b8; opacity: 0; }
       #fade { position: absolute; inset: 0; background: #000; opacity: 0; }
 
-      /* ---------- HUD (1:1 with the app: 344x76, 20pt corners) ---------- */
-      #hud-pulse { position: absolute; left: 0; top: 0; width: 344px; height: 76px; border-radius: 20px;
+      /* ---------- HUD (1:1 with the app: 344x96 (76pt mic row + 20pt 👂 row), 20pt corners) ---------- */
+      #hud-pulse { position: absolute; left: 0; top: 0; width: 344px; height: 96px; border-radius: 20px;
         border: 3px solid #ff4566; opacity: 0; will-change: transform, opacity; }
-      #hud { position: absolute; left: 0; top: 0; width: 344px; height: 76px; border-radius: 20px;
+      #hud { position: absolute; left: 0; top: 0; width: 344px; height: 96px; border-radius: 20px;
         background: linear-gradient(180deg, #282c38, #161820);
         border: 1px solid rgba(255,255,255,0.14); box-shadow: 0 18px 50px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.08);
         will-change: transform, opacity; opacity: 0; }
@@ -101,6 +101,13 @@
         font-weight: 700; font-size: 20px; color: #f4f6fb; letter-spacing: -0.02em; }
       #mood { position: absolute; left: 232px; top: 44px; width: 104px; text-align: right; font-family: "JetBrains Mono", monospace;
         font-weight: 700; font-size: 10px; letter-spacing: 0.12em; color: #40f29e; }
+      #ear { position: absolute; left: 30px; top: 73px; width: 20px; text-align: center; font-size: 11px; line-height: 16px; }
+      #out-track, #out-fill { position: absolute; left: 78px; top: 79.5px; height: 3px; border-radius: 1.5px; }
+      #out-track { width: 174px; background: rgba(255,255,255,0.10); }
+      #out-fill { width: 75px; background: #40f29e; box-shadow: 0 0 6px rgba(64,242,158,0.7); }
+      #out-tick { position: absolute; left: 194px; top: 77px; width: 1px; height: 8px; background: rgba(255,255,255,0.45); }
+      #out-pct { position: absolute; left: 270px; top: 74px; width: 66px; text-align: right; font-family: "JetBrains Mono", monospace;
+        font-weight: 600; font-size: 10px; color: #40f29e; }
     </style>
   </head>
   <body>
@@ -169,6 +176,11 @@
           <div id="meter"><div id="limit"></div></div>
           <div id="db">−52 dB</div>
           <div id="mood">QUIET</div>
+          <div id="ear">👂</div>
+          <div id="out-track"></div>
+          <div id="out-fill"></div>
+          <div id="out-tick"></div>
+          <div id="out-pct">−34 dB</div>
         </div>
         <div id="fade"></div>
       </div>
@@ -286,8 +298,8 @@
 
       // HUD placement: home (top-right), center (zoomed), feature/end stage
       const S_HOME = 1.3, S_ZOOM = 2.9;
-      const pos = (cx, cy) => ({ x: cx - 172, y: cy - 38 });
-      const HOME = pos(1636, 104), CENTER = pos(960, 520), STAGE = pos(960, 560), END = pos(960, 520);
+      const pos = (cx, cy) => ({ x: cx - 172, y: cy - 48 });
+      const HOME = pos(1636, 92), CENTER = pos(960, 520), STAGE = pos(960, 560), END = pos(960, 520);
       tl.fromTo("#hud", { ...HOME, scale: 0.5, opacity: 0 }, { ...HOME, scale: S_HOME, opacity: 1, duration: 0.7, ease: "back.out(1.8)" }, 0.25);
       tl.fromTo("#hud", { ...HOME, scale: S_HOME }, { ...CENTER, scale: S_ZOOM, duration: 0.55, ease: "expo.out", immediateRender: false }, 7.75);
       tl.fromTo("#hud", { ...CENTER, scale: S_ZOOM }, { ...HOME, scale: S_HOME, duration: 0.9, ease: "power3.inOut", immediateRender: false }, 11.5);
