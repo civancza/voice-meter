@@ -24,7 +24,7 @@ jobs:
         with:
           key: ${{ matrix.target }}
       - run: scripts/bundle.sh --zip --target ${{ matrix.target }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: zip-${{ matrix.target }}
           path: dist/*.zip
