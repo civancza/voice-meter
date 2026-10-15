@@ -5,6 +5,8 @@ versioning: [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-15
+
 ### Added
 - Native macOS app icon with a glass tile and glowing voice-level bars, included in every app bundle.
 - Reproducible AppKit icon generator (`make icon`), with standalone ICNS and 1024px PNG artwork.
