@@ -12,17 +12,21 @@ jobs:
     strategy:
       matrix:
         include:
-          - runner: macos-latest   # Apple Silicon
-          - runner: macos-13       # Intel
-    runs-on: ${{ matrix.runner }}
+          - target: aarch64-apple-darwin   # Apple Silicon
+          - target: x86_64-apple-darwin    # Intel (cross-compiled; Intel runners are retired)
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
-      - run: scripts/bundle.sh --zip
+        with:
+          key: ${{ matrix.target }}
+      - run: scripts/bundle.sh --zip --target ${{ matrix.target }}
       - uses: actions/upload-artifact@v4
         with:
-          name: zip-${{ matrix.runner }}
+          name: zip-${{ matrix.target }}
           path: dist/*.zip
 
   release:

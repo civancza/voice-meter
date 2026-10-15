@@ -1,30 +1,39 @@
 #!/usr/bin/env bash
 # Builds VoiceMeter.app (release, ad-hoc signed).
 #
-# Usage: scripts/bundle.sh [--install] [--zip]
+# Usage: scripts/bundle.sh [--install] [--zip] [--target <triple>]
 #   --install  copy the app to /Applications
 #   --zip      also produce dist/VoiceMeter-<version>-macos-<arch>.zip
+#   --target   cross-compile, e.g. x86_64-apple-darwin (Intel) on Apple Silicon
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-INSTALL=0 ZIP=0
-for arg in "$@"; do
-  case "$arg" in
+INSTALL=0 ZIP=0 TARGET=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
     --install) INSTALL=1 ;;
     --zip) ZIP=1 ;;
-    *) echo "unknown option: $arg" >&2; exit 2 ;;
+    --target) TARGET="${2:?--target needs a value}"; shift ;;
+    *) echo "unknown option: $1" >&2; exit 2 ;;
   esac
+  shift
 done
 
 VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
-ARCH=$(uname -m)
-
-cargo build --release
+if [[ -n $TARGET ]]; then
+  ARCH="${TARGET%%-*}"; [[ $ARCH == aarch64 ]] && ARCH=arm64
+  cargo build --release --target "$TARGET"
+  BIN="target/$TARGET/release/voice-meter"
+else
+  ARCH=$(uname -m)
+  cargo build --release
+  BIN="target/release/voice-meter"
+fi
 
 APP=VoiceMeter.app
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp target/release/voice-meter "$APP/Contents/MacOS/VoiceMeter"
+cp "$BIN" "$APP/Contents/MacOS/VoiceMeter"
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
