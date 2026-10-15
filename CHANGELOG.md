@@ -5,6 +5,8 @@ versioning: [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-15
+
 ### Added
 - 30-second demo video (HyperFrames) with synthesized music and SFX, README GIF and screenshots.
 
