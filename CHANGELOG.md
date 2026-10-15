@@ -8,6 +8,16 @@ versioning: [SemVer](https://semver.org/).
 ### Added
 - 30-second demo video (HyperFrames) with synthesized music and SFX, README GIF and screenshots.
 
+### Changed
+- Separate the meter model, audio capture, preferences, HUD rendering/placement, and menu/controller wiring into modules.
+- Unify amber segments with the Careful boundary at 6 dB below the threshold; clamp all thresholds to -45..=-3 dB.
+- Use the TooLoud mood color for the alarm border, and persist HUD home position from window-move notifications
+  instead of the animation tick.
+
+### Fixed
+- Repaint the complete HUD snapshot when shown, preventing stale orb, ring, label, and alarm colors after hidden
+  mood transitions.
+
 ## [0.1.0] - 2026-10-15
 
 ### Added

@@ -20,8 +20,9 @@ constraints: **minimal CPU and memory**, **native look**, **no webviews / Electr
 | Format | `make fmt` |
 | Release zip | `make zip` → `dist/VoiceMeter-<ver>-macos-<arch>.zip` |
 
-Always run `make check` before declaring work done. Unit tests live in `#[cfg(test)] mod tests` at the bottom of `src/main.rs`. Logic that can be tested without
-AppKit (e.g. `db_frac`, `publish`, calibration math) should get tests when changed.
+Always run `make check` before declaring work done. Pure model tests live in `src/meter/tests.rs` and
+`src/meter/presentation_tests.rs`; audio tests are in `src/audio.rs`, and render-cache regressions in `src/hud/tests.rs`.
+Logic that can be tested without AppKit (e.g. `db_frac`, `publish`, calibration math) should get tests when changed.
 
 Debugging: run the binary directly to see panics/ObjC exceptions on stderr:
 `./VoiceMeter.app/Contents/MacOS/VoiceMeter`. Crash reports land in `~/Library/Logs/DiagnosticReports/VoiceMeter-*.ips`.
@@ -30,7 +31,15 @@ Microphone access only works from the `.app` bundle (it carries `NSMicrophoneUsa
 ## Layout
 
 ```
-src/main.rs          the whole app (UI, audio, state)
+src/main.rs          Controller actions, NSWindowDelegate, wiring, and app entry point
+src/meter.rs         pure Meter model and complete Frame presentation snapshots
+src/meter/           model and presentation tests
+src/audio.rs         cpal capture and atomic peak-RMS exchange (plus tests)
+src/prefs.rs         typed NSUserDefaults settings access
+src/hud.rs           HUD/layer construction, snapshot rendering, one render cache
+src/hud/placement.rs window placement/zoom animation, pill mask, screen helpers
+src/hud/tests.rs     full-snapshot repaint/invalidation regression tests
+src/menu.rs          status item, shared menus, refresh, and icon tint
 scripts/bundle.sh    builds/signs VoiceMeter.app, Info.plist lives here
 Makefile             developer shortcuts
 docs/                screenshots, demo.mp4/demo.gif (rendered from videos/)
@@ -40,20 +49,33 @@ videos/voice-meter-demo/  HyperFrames demo video (index.html + scripts/mix.sh so
 
 If you change the HUD look (colors, sizes, labels), mirror it in `videos/voice-meter-demo/index.html` and re-render.
 
-## Architecture (src/main.rs)
+## Architecture
 
-- **Audio thread** (`start_audio`, `publish`): cpal callback computes RMS per buffer and stores the max since last read
+- **Audio thread** (`audio::start`, `publish`): cpal callback computes RMS per buffer and stores the max since last read
   in an `AtomicU32` (`fetch_max` on f32 bits, valid because values are non-negative). No locks, no allocation.
-- **Main thread** (`Controller`, an `NSObject` subclass via `define_class!`): an `NSTimer` at `FPS` (30) calls `on_tick`:
-  1. swap level → dB, attack/release smoothing, peak hold;
-  2. alarm logic (`loud_ticks` ≥ 5 ⇒ `alarm_ticks` = 1.6 s);
-  3. calibration (collect 5 s, p90 + 6 dB, clamped);
-  4. pick `Mood`, update only CALayer properties that changed, inside a `CATransaction` with actions disabled;
-  5. `update_zoom`: eases `State.zoom` 0→1, moves/resizes the `NSPanel` toward screen center and scales the `stage`
-     layer by up to `ZOOM_SCALE`.
+- **Main-thread controller** (`Controller`, an `NSObject` subclass via `define_class!`): an `NSTimer` at `meter::FPS`
+  (30 Hz) takes the audio peak, converts RMS to dB via `meter::rms_db`, and calls `Meter::step`. It passes the complete
+  frame to the HUD/menu and advances placement separately. Calibration starts through `Meter::start_calibration`;
+  a finishing frame's `calibration_result` is persisted through `Prefs`, recolors the segments/marker, and refreshes menus.
+- **Model** (`meter::Meter`): owns smoothing, peak hold, alarm debounce/hold, calibration, mood, labels and refresh
+  cadence. `Frame` includes every visual value, so rendering needs no signal/mood/calibration decisions. All threshold
+  sources clamp to -45..=-3 dB; amber starts at threshold minus 6 dB, matching Careful; alarm borders use TooLoud RGB.
+- **Rendering** (`hud::Hud`): owns layers and one `Rendered` last-drawn snapshot. Only changed properties are applied,
+  inside a `CATransaction` with actions disabled. Text buffers in the cache are reused. Changing thresholds or calling
+  `Hud::show` resets the entire cache. All show paths (initial display, toggle, calibration) use `Hud::show`; on the next
+  visible tick every property is repainted from the complete frame, even if moods/alarms changed while hidden and the
+  model's incremental flags are now false. The model and menu-bar tint continue advancing while the HUD is hidden.
+- **Placement** (`hud::Placement`): owns jump preference, home origin, and zoom progress independently of the model/cache.
+  Zoom eases 0→1, moves/resizes the panel toward screen center, and scales the stage by up to `ZOOM_SCALE` using
+  `CATransform3DMakeScale`. The controller's `windowDidMove:` delegate persists changed home origins only at rest;
+  programmatic animation moves and moves while zoomed are ignored. No preference writes occur inside `update_zoom`.
+  Connected-display checks use `CGRectContainsPoint`.
 - **View tree**: `NSPanel` (borderless, non-activating, level 25, all Spaces) → `NSVisualEffectView` (blur, shaped by
-  `pill_mask` image) → `canvas` NSView → `stage` CALayer (fixed W×H, scaled for zoom) → segment/orb/text layers.
-- **Persistence**: `NSUserDefaults` keys `thresholdDb`, `jumpWhenLoud`, `hudX`, `hudY` (domain `com.civancza.voicemeter`).
+  `pill_mask` image) → stored `canvas` NSView → `stage` CALayer (fixed W×H, scaled for zoom) → segment/orb/text layers.
+- **Menus** (`menu::Menu`): owns the status item and shared status/HUD context menu, updates checks/titles, and applies
+  the model's status tint independently of HUD visibility.
+- **Persistence** (`prefs::Prefs`): wraps `NSUserDefaults` keys `thresholdDb`, `jumpWhenLoud`, `hudX`, `hudY`
+  (domain `com.civancza.voicemeter`); no other module accesses defaults directly.
 
 ## Rules and gotchas
 
@@ -66,7 +88,7 @@ If you change the HUD look (colors, sizes, labels), mirror it in `videos/voice-m
 - `objc2-app-kit` 0.3 has `NSImageResizingMode::Stretch`/`Tile` swapped on Apple Silicon. `pill_mask` hard-codes
   AppKit's real values; AppKit throws if a mask image is not in stretch mode.
 - `kill` by PID only (no `pkill`/`killall`) when scripting app restarts.
-- Prefer adding new visual constants next to `W`, `H`, `CORNER`, `ZOOM_SCALE` rather than inline magic numbers.
+- Prefer adding new visual constants next to `W`, `H`, `CORNER`, `ZOOM_SCALE` in `src/hud.rs` rather than inline magic numbers.
 - Update `README.md` (features/usage) and `CHANGELOG.md` (`Unreleased`) for user-visible changes.
 
 ## Definition of done
