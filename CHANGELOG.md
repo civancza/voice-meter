@@ -5,6 +5,11 @@ versioning: [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- Recover microphone capture automatically after default-input changes, audio errors, or stopped callbacks when
+  switching meeting apps. Retry unavailable microphones and update `NO MIC` dynamically instead of staying frozen.
+- Clear stale peaks, alarms, and incomplete calibration when microphone capture is lost.
+
 ## [0.2.0] - 2026-10-15
 
 ### Added

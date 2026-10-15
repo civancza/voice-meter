@@ -24,6 +24,12 @@ Always run `make check` before declaring work done. Pure model tests live in `sr
 `src/meter/presentation_tests.rs`; audio tests are in `src/audio.rs`, and render-cache regressions in `src/hud/tests.rs`.
 Logic that can be tested without AppKit (e.g. `db_frac`, `publish`, calibration math) should get tests when changed.
 
+The ignored `audio::tests::live_capture_recovers_from_stopped_callbacks_errors_and_input_changes` test needs a real
+microphone and bundle permission. Copy the test executable reported by `cargo test --release --no-run` into a temporary
+copy of `VoiceMeter.app` as `Contents/MacOS/VoiceMeter`, ad-hoc sign that bundle, and run its executable with
+`--ignored --exact audio::tests::live_capture_recovers_from_stopped_callbacks_errors_and_input_changes --nocapture`.
+It pauses only its own capture stream and simulates error/input-change signals; it does not change the system input.
+
 Debugging: run the binary directly to see panics/ObjC exceptions on stderr:
 `./VoiceMeter.app/Contents/MacOS/VoiceMeter`. Crash reports land in `~/Library/Logs/DiagnosticReports/VoiceMeter-*.ips`.
 Microphone access only works from the `.app` bundle (it carries `NSMicrophoneUsageDescription`).
@@ -34,7 +40,7 @@ Microphone access only works from the `.app` bundle (it carries `NSMicrophoneUsa
 src/main.rs          Controller actions, NSWindowDelegate, wiring, and app entry point
 src/meter.rs         pure Meter model and complete Frame presentation snapshots
 src/meter/           model and presentation tests
-src/audio.rs         cpal capture and atomic peak-RMS exchange (plus tests)
+src/audio.rs         recoverable cpal capture, callback health, atomic peak-RMS exchange (plus tests)
 src/prefs.rs         typed NSUserDefaults settings access
 src/hud.rs           HUD/layer construction, snapshot rendering, one render cache
 src/hud/placement.rs window placement/zoom animation, pill mask, screen helpers
@@ -51,10 +57,16 @@ If you change the HUD look (colors, sizes, labels), mirror it in `videos/voice-m
 
 ## Architecture
 
-- **Audio thread** (`audio::start`, `publish`): cpal callback computes RMS per buffer and stores the max since last read
+- **Audio capture** (`audio::Capture`, `publish`): cpal callback computes RMS per buffer and stores the max since last read
   in an `AtomicU32` (`fetch_max` on f32 bits, valid because values are non-negative). No locks, no allocation.
+  A separate atomic counts non-empty callbacks, including silence. `Capture` is a `Disconnected | Live` state machine:
+  `poll` returns `Option<f32>` (`None` = no mic) and once per second compares the default input device ID (cheap; the
+  stream format is read only when connecting) and rebuilds capture on a device change, stream error, or three seconds
+  without callbacks. Each `Live` connection owns its own atomic exchange, so late callbacks cannot contaminate a
+  replacement. Failed starts retry once per second with deduplicated diagnostics.
 - **Main-thread controller** (`Controller`, an `NSObject` subclass via `define_class!`): an `NSTimer` at `meter::FPS`
-  (30 Hz) takes the audio peak, converts RMS to dB via `meter::rms_db`, and calls `Meter::step`. It passes the complete
+  (30 Hz) maps the capture reading through `meter::rms_db` and calls `Meter::step(Option<f32>)`; a `None`/`Some` transition
+  shows `NO MIC`, clears stale peaks/alarms and (on loss) cancels incomplete calibration. It passes the complete
   frame to the HUD/menu and advances placement separately. Calibration starts through `Meter::start_calibration`;
   a finishing frame's `calibration_result` is persisted through `Prefs`, recolors the segments/marker, and refreshes menus.
 - **Model** (`meter::Meter`): owns smoothing, peak hold, alarm debounce/hold, calibration, mood, labels and refresh

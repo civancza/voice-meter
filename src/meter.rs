@@ -141,10 +141,11 @@ pub struct Meter {
 }
 
 impl Meter {
-    pub fn new(threshold: f32, has_mic: bool) -> Self {
+    /// Starts without a microphone; the first `Some` reading connects it.
+    pub fn new(threshold: f32) -> Self {
         Self {
             threshold: clamp_threshold(threshold),
-            has_mic,
+            has_mic: false,
             smooth: MIN_DB,
             peak: MIN_DB,
             peak_hold: 0,
@@ -167,6 +168,23 @@ impl Meter {
         self.threshold = clamp_threshold(db);
     }
 
+    /// Gaining or losing the microphone drops stale levels and alarms; losing it cancels calibration.
+    fn set_mic(&mut self, has_mic: bool) {
+        if self.has_mic == has_mic {
+            return;
+        }
+        self.has_mic = has_mic;
+        self.smooth = MIN_DB;
+        self.peak = MIN_DB;
+        self.peak_hold = 0;
+        self.loud_ticks = 0;
+        self.alarm_ticks = 0;
+        self.db_value = None;
+        if !has_mic {
+            self.mode = Mode::Live;
+        }
+    }
+
     #[cfg(test)]
     pub fn mode(&self) -> &Mode {
         &self.mode
@@ -180,8 +198,10 @@ impl Meter {
         };
     }
 
-    /// Consume one dB reading at 30 Hz, including when the HUD is hidden.
-    pub fn step(&mut self, db: f32) -> Frame {
+    /// Consume one dB reading at 30 Hz, including when the HUD is hidden; `None` means no microphone.
+    pub fn step(&mut self, db: Option<f32>) -> Frame {
+        self.set_mic(db.is_some());
+        let db = db.unwrap_or(f32::NEG_INFINITY);
         self.tick += 1;
         let k = if db > self.smooth { ATTACK } else { RELEASE };
         self.smooth += (db.max(SMOOTH_FLOOR_DB) - self.smooth) * k;

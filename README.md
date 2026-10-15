@@ -34,6 +34,8 @@ Written in Rust directly against AppKit + Core Animation + Core Audio. No Electr
 - 🔴 **Jump to center**: when too loud, the HUD glides to the screen center at 2.2× size, then returns home (toggle in menu).
 - 🖱️ **Drag anywhere**: position is remembered (multi-monitor aware).
 - 📌 **Menu-bar icon**: lives in the menu bar, no Dock icon. Right-click the HUD for the same menu.
+- **Automatic microphone recovery**: follows default-input changes, and reconnects if a meeting app
+  interrupts capture. No relaunch needed.
 
 ## Quick start
 
@@ -79,9 +81,14 @@ Levels are dBFS of the default input device (0 dB = clipping). Typical speech si
 
 ## Troubleshooting
 
-- **Shows `NO MIC` / meter never moves**: System Settings → Privacy & Security → **Microphone** → enable *Voice Meter*. Then quit and relaunch.
+- **Shows `NO MIC` / meter never moves**: System Settings → Privacy & Security → **Microphone** → enable *Voice Meter*.
+  The app retries automatically; macOS may still require a relaunch after changing permissions.
 - **Re-prompt for microphone permission**: `tccutil reset Microphone com.civancza.voicemeter`.
-- **Wrong microphone**: Voice Meter follows the macOS default input (System Settings → Sound → Input). Relaunch after changing it.
+- **Wrong microphone**: Voice Meter follows the macOS default input (System Settings → Sound → Input), which may differ
+  from the microphone selected inside Slack or a browser meeting. Default-input changes are detected automatically.
+- **Meter stops after switching meeting apps or connecting headphones**: capture reconnects automatically within a few
+  seconds. `NO MIC` means no live audio buffers are arriving, not that you are simply being quiet.
+  If it persists, check the default input and microphone permission.
 - **Reset all settings**: `defaults delete com.civancza.voicemeter`.
 
 ## How it works

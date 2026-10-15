@@ -15,7 +15,6 @@ use objc2_app_kit::{NSApplication, NSApplicationActivationPolicy, NSMenuItem, NS
 use objc2_foundation::{NSNotification, NSObject, NSRunLoop, NSRunLoopCommonModes, NSTimer};
 use prefs::Prefs;
 use std::cell::{OnceCell, RefCell};
-use std::sync::{Arc, atomic::AtomicU32};
 
 struct Ui {
     hud: Hud,
@@ -24,7 +23,7 @@ struct Ui {
 }
 
 struct Ivars {
-    level: Arc<AtomicU32>,
+    capture: RefCell<audio::Capture>,
     ui: OnceCell<Ui>,
     meter: RefCell<Meter>,
     prefs: Prefs,
@@ -85,13 +84,13 @@ define_class!(
 );
 
 impl Controller {
-    fn new(mtm: MainThreadMarker, level: Arc<AtomicU32>, has_mic: bool) -> Retained<Self> {
+    fn new(mtm: MainThreadMarker) -> Retained<Self> {
         let prefs = Prefs::load();
         let threshold = prefs.threshold().unwrap_or(meter::DEFAULT_THRESHOLD);
         let this = Self::alloc(mtm).set_ivars(Ivars {
-            level,
+            capture: RefCell::new(audio::Capture::new()),
             ui: OnceCell::new(),
-            meter: RefCell::new(Meter::new(threshold, has_mic)),
+            meter: RefCell::new(Meter::new(threshold)),
             prefs,
         });
         unsafe { msg_send![super(this), init] }
@@ -143,11 +142,8 @@ impl Controller {
     }
 
     fn on_tick(&self) {
-        let frame = self
-            .ivars()
-            .meter
-            .borrow_mut()
-            .step(meter::rms_db(audio::take_level(&self.ivars().level)));
+        let db = self.ivars().capture.borrow_mut().poll().map(meter::rms_db);
+        let frame = self.ivars().meter.borrow_mut().step(db);
         let ui = self.ui();
         ui.menu.render(self.mtm(), &frame);
         ui.hud.render(&frame);
@@ -162,10 +158,7 @@ fn main() {
     let mtm = MainThreadMarker::new().expect("must run on main thread");
     let app = NSApplication::sharedApplication(mtm);
     app.setActivationPolicy(NSApplicationActivationPolicy::Accessory);
-    let level = Arc::new(AtomicU32::new(0));
-    let stream = audio::start(level.clone());
-    let controller = Controller::new(mtm, level, stream.is_some());
+    let controller = Controller::new(mtm);
     controller.build(mtm);
     app.run();
-    drop(stream);
 }
