@@ -44,7 +44,7 @@ Written in Rust directly against AppKit + Core Animation + Core Audio. No Electr
 
 ### Option A: Download a release (no tools needed)
 
-1. Grab `VoiceMeter-<version>-macos-arm64.zip` (Apple Silicon) or `…-x86_64.zip` (Intel) from the [Releases](https://github.com/civancza/voice-meter/releases) page.
+1. Grab `VoiceMeter-<version>-macos-arm64.zip` (Apple Silicon) or `…-x86_64.zip` (Intel) from the [Releases](https://github.com/icsaba/voice-meter/releases) page.
 2. Unzip and drag **VoiceMeter.app** to `/Applications`.
 3. The app is not notarized, so the first time macOS will block it. Either
    - right-click the app → **Open** → **Open**, or
@@ -56,7 +56,7 @@ Written in Rust directly against AppKit + Core Animation + Core Audio. No Electr
 Requirements: macOS 11+, [Rust](https://rustup.rs) (stable ≥ 1.87), Xcode Command Line Tools (`xcode-select --install`).
 
 ```sh
-git clone https://github.com/civancza/voice-meter.git
+git clone https://github.com/icsaba/voice-meter.git
 cd voice-meter
 make run          # builds VoiceMeter.app and launches it
 # or
